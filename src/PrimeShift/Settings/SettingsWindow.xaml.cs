@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -45,7 +46,9 @@ public partial class SettingsWindow : Window
             AutoStartSwitch.IsChecked = AutoStart.IsEnabled;
             AutoStartStale.Visibility = AutoStart.IsStale ? Visibility.Visible : Visibility.Collapsed;
             NotifySwitch.IsChecked = _config.NotifyOnSwitch;
-            VersionText.Text = $"版本 {typeof(SettingsWindow).Assembly.GetName().Version?.ToString(3)}";
+            // InformationalVersion carries the full tag version (e.g. 0.3.0-beta.1); drop the "+commit" suffix.
+            var version = typeof(SettingsWindow).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+            VersionText.Text = $"版本 {version?.Split('+')[0]}";
             DataCard.Description = ConfigStore.Directory;
             AgentInfoBar.Visibility = AgentChannel.IsAgentRunning ? Visibility.Collapsed : Visibility.Visible;
             RefreshMonitors();

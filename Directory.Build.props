@@ -6,7 +6,8 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <DebugType>embedded</DebugType>
-    <Version>0.2.0</Version>
+    <!-- Release builds take the version from the v* git tag (see .github/workflows/build.yml). -->
+    <Version>0.0.0-dev</Version>
     <Authors>Zichen Chen</Authors>
     <Product>PrimeShift</Product>
     <Copyright>Copyright (c) 2026 Zichen Chen</Copyright>
