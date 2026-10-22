@@ -23,6 +23,7 @@ public partial class SettingsWindow : Window
     // Shortcut dialog state
     private ProfileItem? _shortcutTarget;
     private Hotkey? _pendingHotkey;
+    private bool _pendingCleared;
 
     public SettingsWindow()
     {
@@ -382,6 +383,7 @@ public partial class SettingsWindow : Window
             return;
         }
         _pendingHotkey = new Hotkey(modifiers, vk);
+        _pendingCleared = false;
         ShowPendingKeys(_pendingHotkey.Value.Parts);
         ValidatePendingHotkey(isInitial: false);
     }
@@ -406,8 +408,12 @@ public partial class SettingsWindow : Window
     {
         if (_shortcutTarget is null || _pendingHotkey is not { } hotkey)
         {
-            ShortcutStatus.Visibility = Visibility.Collapsed;
-            SaveShortcutButton.IsEnabled = false;
+            // After "clear", saving with no keys removes the layout's shortcut.
+            var canRemove = _pendingCleared && _shortcutTarget?.HasHotkey == true;
+            ShortcutStatus.Visibility = canRemove ? Visibility.Visible : Visibility.Collapsed;
+            ShortcutStatus.Severity = InfoBarSeverity.Informational;
+            ShortcutStatus.Message = "已清除。按下新的组合键，或直接保存以取消这个布局的快捷键。";
+            SaveShortcutButton.IsEnabled = canRemove;
             return;
         }
         var conflict = CheckHotkey(_shortcutTarget, hotkey);
@@ -419,9 +425,9 @@ public partial class SettingsWindow : Window
 
     private void OnSaveShortcut(object sender, RoutedEventArgs e)
     {
-        if (_shortcutTarget is { } item && _pendingHotkey is { } hotkey)
+        if (_shortcutTarget is { } item && (_pendingHotkey is not null || _pendingCleared))
         {
-            item.Model.Hotkey = hotkey.ToString();
+            item.Model.Hotkey = _pendingHotkey?.ToString();
             item.Error = null;
             item.Refresh();
             Save();
@@ -429,16 +435,15 @@ public partial class SettingsWindow : Window
         CloseShortcutDialog();
     }
 
+    /// <summary>Clear the keys entered so far and keep waiting for a new combination.</summary>
     private void OnClearShortcut(object sender, RoutedEventArgs e)
     {
-        if (_shortcutTarget is { } item)
-        {
-            item.Model.Hotkey = null;
-            item.Error = null;
-            item.Refresh();
-            Save();
-        }
-        CloseShortcutDialog();
+        _pendingHotkey = null;
+        _pendingCleared = true;
+        ShowPendingKeys([]);
+        ValidatePendingHotkey(isInitial: false);
+        // The click moved focus to the button; give it back so the next keys are recorded.
+        Keyboard.Focus(ShortcutOverlay);
     }
 
     private void OnCancelShortcut(object sender, RoutedEventArgs e) => CloseShortcutDialog();
@@ -448,6 +453,7 @@ public partial class SettingsWindow : Window
         ShortcutOverlay.Visibility = Visibility.Collapsed;
         _shortcutTarget = null;
         _pendingHotkey = null;
+        _pendingCleared = false;
     }
 
     private static HotkeyModifiers ToHotkeyModifiers(ModifierKeys keys)

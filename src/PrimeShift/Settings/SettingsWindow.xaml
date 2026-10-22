@@ -334,14 +334,14 @@
                             </Border>
                             <local:InfoBar x:Name="ShortcutStatus" Margin="0,12,0,0" Visibility="Collapsed" />
                             <TextBlock Style="{StaticResource Caption}" Margin="0,12,0,0"
-                                       Text="需包含 Win、Ctrl、Alt 或 Shift；只用 Shift 时仅限 F1–F24。按 Enter 保存，Esc 取消。" />
+                                       Text="需包含 Win、Ctrl、Alt 或 Shift；只用 Shift 时仅限 F1–F24。按 Enter 保存，Esc 取消；清除后直接保存可取消快捷键。" />
                         </StackPanel>
                     </Border>
                     <Border BorderThickness="0,1,0,0" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" Padding="24">
                         <UniformGrid Columns="3">
                             <Button x:Name="SaveShortcutButton" Content="保存" Margin="0,0,4,0" HorizontalAlignment="Stretch"
                                     Style="{DynamicResource AccentButtonStyle}" Click="OnSaveShortcut" />
-                            <Button Content="清除快捷键" Margin="4,0" HorizontalAlignment="Stretch" Click="OnClearShortcut" />
+                            <Button Content="清除" Margin="4,0" HorizontalAlignment="Stretch" Click="OnClearShortcut" />
                             <Button Content="取消" Margin="4,0,0,0" HorizontalAlignment="Stretch" Click="OnCancelShortcut" />
                         </UniformGrid>
                     </Border>
