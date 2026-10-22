@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>PrimeShift</RootNamespace>
+    <StartupObject>PrimeShift.Program</StartupObject>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Lets the project build on Linux/macOS too (CI tests, editors); the exe still only runs on Windows. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <!-- WPF Fluent theme (ThemeMode) is still flagged experimental. -->
+    <NoWarn>$(NoWarn);WPF0001</NoWarn>
+    <!-- The tray agent idles almost all the time; skip the background GC thread to keep it lean. -->
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <SatelliteResourceLanguages>zh-Hans</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <!-- Portable single exe: dotnet publish -c Release -r win-x64
+       Add -p:SelfContained=false for a ~1 MB exe that needs the .NET 10 Desktop Runtime installed. -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <SelfContained Condition="'$(SelfContained)' == ''">true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <!-- Left uncompressed on purpose: compressed assemblies are inflated into private memory
+         when loaded, while uncompressed ones are mapped straight from the exe. That keeps the
+         resident tray agent lean at the cost of a larger file. -->
+    <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\tray-light.ico" LogicalName="tray-light.ico" />
+    <EmbeddedResource Include="Assets\tray-dark.ico" LogicalName="tray-dark.ico" />
+    <Resource Include="Assets\app.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PrimeShift.Core\PrimeShift.Core.csproj" />
+  </ItemGroup>
+</Project>

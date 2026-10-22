@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Platform-neutral target so the layout and hotkey logic can be unit tested anywhere;
+       the Win32 calls themselves only run on Windows. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsTrimmable>true</IsTrimmable>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PrimeShift.Core.Tests" />
+  </ItemGroup>
+</Project>

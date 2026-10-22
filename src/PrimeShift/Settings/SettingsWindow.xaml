@@ -1,0 +1,156 @@
+<Window x:Class="PrimeShift.Settings.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:PrimeShift.Settings"
+        Title="PrimeShift 设置"
+        Icon="/Assets/app.ico"
+        Width="760" Height="760" MinWidth="560" MinHeight="480"
+        WindowStartupLocation="CenterScreen"
+        Loaded="OnLoaded">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="16,14" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+
+        <Style x:Key="SectionHeader" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="2,28,0,10" />
+        </Style>
+
+        <Style x:Key="Secondary" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <Style x:Key="Critical" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+    </Window.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="36,28,36,36" MaxWidth="880">
+            <TextBlock Text="PrimeShift" FontSize="28" FontWeight="SemiBold" />
+            <TextBlock Style="{StaticResource Secondary}" Margin="0,6,0,0"
+                       Text="保存显示布局，用全局快捷键一键切换。远程时切到「仅 KVM 屏」，回来后一键恢复。" />
+
+            <!-- Layouts -->
+            <TextBlock Style="{StaticResource SectionHeader}" Text="布局" />
+            <TextBlock x:Name="EmptyHint" Style="{StaticResource Secondary}" Margin="2,0,0,10"
+                       Text="还没有保存任何布局。先在下方保存当前布局。" />
+
+            <ItemsControl x:Name="ProfileList" Focusable="False">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type local:ProfileItem}">
+                        <Border Style="{StaticResource Card}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <TextBox Grid.Row="0" Grid.Column="0" HorizontalAlignment="Left" MinWidth="200" MaxWidth="320"
+                                         FontWeight="SemiBold" ToolTip="点击修改名称"
+                                         Text="{Binding Name, Mode=OneWay}"
+                                         LostKeyboardFocus="OnNameLostFocus" KeyDown="OnNameKeyDown" />
+
+                                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource Secondary}" Text="快捷键" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                    <local:HotkeyBox Width="210" HotkeyText="{Binding HotkeyText, Mode=OneWay}"
+                                                     Recorded="OnHotkeyRecorded" />
+                                </StackPanel>
+
+                                <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Style="{StaticResource Secondary}" Margin="2,10,0,0"
+                                           Text="{Binding Summary}" />
+
+                                <Grid Grid.Row="2" Grid.ColumnSpan="2" Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Style="{StaticResource Critical}" VerticalAlignment="Center" Margin="2,0,12,0"
+                                               Text="{Binding Error}"
+                                               Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}" />
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                        <Button Content="应用" MinWidth="72" Click="OnApply" />
+                                        <Button Content="用当前布局覆盖" Margin="8,0,0,0" Click="OnOverwrite"
+                                                ToolTip="把这个布局更新为当前的显示设置" />
+                                        <Button Content="删除" Margin="8,0,0,0" Click="OnDelete" />
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="保存当前布局" FontWeight="SemiBold" />
+                    <TextBlock Style="{StaticResource Secondary}" Margin="0,6,0,12"
+                               Text="先在 Windows 显示设置里把屏幕调成想要的样子（例如只保留 KVM 屏并设为主屏），再在这里保存。" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid>
+                            <TextBox x:Name="NewNameBox" TextChanged="OnNewNameChanged" KeyDown="OnNewNameKeyDown" />
+                            <TextBlock x:Name="NewNamePlaceholder" Style="{StaticResource Secondary}" IsHitTestVisible="False"
+                                       Margin="12,0,0,0" VerticalAlignment="Center" Text="布局名称，例如 home 或 remote" />
+                        </Grid>
+                        <Button Grid.Column="1" Margin="8,0,0,0" Content="保存当前布局"
+                                Style="{DynamicResource AccentButtonStyle}" Click="OnSaveCurrent" />
+                        <Button Grid.Column="2" Margin="8,0,0,0" Content="打开显示设置" Click="OnOpenDisplaySettings" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Monitors -->
+            <Grid Margin="0,28,0,10">
+                <TextBlock Style="{StaticResource SectionHeader}" Margin="2,0,0,0" VerticalAlignment="Center" Text="当前显示器" />
+                <Button HorizontalAlignment="Right" Content="刷新" Click="OnRefreshMonitors" />
+            </Grid>
+            <Border Style="{StaticResource Card}">
+                <ItemsControl x:Name="MonitorList" Focusable="False">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Margin="0,3" TextWrapping="Wrap" Text="{Binding}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Border>
+
+            <!-- General -->
+            <TextBlock Style="{StaticResource SectionHeader}" Text="常规" />
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <CheckBox x:Name="AutoStartBox" Content="登录 Windows 后自动启动 PrimeShift"
+                              Checked="OnAutoStartChanged" Unchecked="OnAutoStartChanged" />
+                    <TextBlock x:Name="AutoStartStaleHint" Style="{StaticResource Secondary}" Margin="28,2,0,0" Visibility="Collapsed"
+                               Text="自启项指向的是另一个位置的 PrimeShift.exe（可能已移动）。取消再勾选即可改为当前位置。" />
+                    <CheckBox x:Name="NotifyBox" Margin="0,12,0,0" Content="切换布局后显示通知"
+                              Checked="OnNotifyChanged" Unchecked="OnNotifyChanged" />
+                </StackPanel>
+            </Border>
+
+            <TextBlock Style="{StaticResource Secondary}" Margin="2,24,0,0"
+                       Text="设置窗口打开期间，全局快捷键暂停生效，关闭窗口后自动恢复。" />
+            <TextBlock x:Name="FooterText" Style="{StaticResource Secondary}" Margin="2,4,0,0" />
+        </StackPanel>
+    </ScrollViewer>
+</Window>

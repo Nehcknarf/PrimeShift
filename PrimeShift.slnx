@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PrimeShift.Core/PrimeShift.Core.csproj" />
+    <Project Path="src/PrimeShift/PrimeShift.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PrimeShift.Core.Tests/PrimeShift.Core.Tests.csproj" />
+  </Folder>
+</Solution>

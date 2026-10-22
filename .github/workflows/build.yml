@@ -1,0 +1,68 @@
+name: Build
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Test
+        run: dotnet test tests/PrimeShift.Core.Tests -c Release
+
+      - name: Publish standalone exe (no runtime needed)
+        run: dotnet publish src/PrimeShift -c Release -r win-x64 -o out/standalone
+
+      - name: Publish lite exe (needs .NET 10 Desktop Runtime)
+        run: dotnet publish src/PrimeShift -c Release -r win-x64 -p:SelfContained=false -o out/lite
+
+      - name: Rename
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item out/standalone/PrimeShift.exe dist/PrimeShift-win-x64.exe
+          Copy-Item out/lite/PrimeShift.exe dist/PrimeShift-win-x64-lite.exe
+          Get-ChildItem dist | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PrimeShift-win-x64
+          path: dist/PrimeShift-win-x64.exe
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PrimeShift-win-x64-lite
+          path: dist/PrimeShift-win-x64-lite.exe
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.exe
+          generate_release_notes: true
