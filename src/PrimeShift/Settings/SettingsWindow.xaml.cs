@@ -1,8 +1,10 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Threading;
 using PrimeShift.Agent;
 using PrimeShift.Core.Config;
 using PrimeShift.Core.Display;
@@ -12,15 +14,21 @@ namespace PrimeShift.Settings;
 
 public partial class SettingsWindow : Window
 {
+    private const string RepositoryUrl = "https://github.com/Nehcknarf/PrimeShift";
+
     private readonly ObservableCollection<ProfileItem> _items = [];
     private AppConfig _config = new();
     private bool _loading;
+
+    // Shortcut dialog state
+    private ProfileItem? _shortcutTarget;
+    private Hotkey? _pendingHotkey;
 
     public SettingsWindow()
     {
         InitializeComponent();
         ProfileList.ItemsSource = _items;
-        _items.CollectionChanged += (_, _) => EmptyHint.Visibility = _items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        _items.CollectionChanged += (_, _) => UpdateEmptyHint();
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -33,15 +41,12 @@ public partial class SettingsWindow : Window
                 Close();
                 return;
             }
-            AutoStartBox.IsChecked = AutoStart.IsEnabled;
-            AutoStartStaleHint.Visibility = AutoStart.IsStale ? Visibility.Visible : Visibility.Collapsed;
-            NotifyBox.IsChecked = _config.NotifyOnSwitch;
-            var version = typeof(SettingsWindow).Assembly.GetName().Version;
-            FooterText.Text = $"版本 {version?.ToString(3)} · 配置文件：{ConfigStore.ConfigPath}";
-            if (!AgentChannel.IsAgentRunning)
-            {
-                FooterText.Text += "\n托盘程序未运行，快捷键不会生效。直接双击 PrimeShift.exe 即可启动。";
-            }
+            AutoStartSwitch.IsChecked = AutoStart.IsEnabled;
+            AutoStartStale.Visibility = AutoStart.IsStale ? Visibility.Visible : Visibility.Collapsed;
+            NotifySwitch.IsChecked = _config.NotifyOnSwitch;
+            VersionText.Text = $"版本 {typeof(SettingsWindow).Assembly.GetName().Version?.ToString(3)}";
+            DataCard.Description = ConfigStore.Directory;
+            AgentInfoBar.Visibility = AgentChannel.IsAgentRunning ? Visibility.Collapsed : Visibility.Visible;
             RefreshMonitors();
         }
         finally
@@ -49,6 +54,30 @@ public partial class SettingsWindow : Window
             _loading = false;
         }
     }
+
+    // ---------------------------------------------------------------- navigation
+
+    private void OnNavigate(object sender, SelectionChangedEventArgs e)
+    {
+        // The initially selected item can raise this while InitializeComponent is still
+        // building the page elements.
+        if (sender is not ListBox { SelectedItem: ListBoxItem { Tag: string page } } list || !IsInitialized)
+        {
+            return;
+        }
+        // Two lists (top and footer) act as one navigation menu.
+        var other = list == MainNav ? FooterNav : MainNav;
+        other.SelectedIndex = -1;
+        LayoutsPage.Visibility = page == "Layouts" ? Visibility.Visible : Visibility.Collapsed;
+        MonitorsPage.Visibility = page == "Monitors" ? Visibility.Visible : Visibility.Collapsed;
+        GeneralPage.Visibility = page == "General" ? Visibility.Visible : Visibility.Collapsed;
+        if (page == "Monitors")
+        {
+            RefreshMonitors();
+        }
+    }
+
+    // ---------------------------------------------------------------- config
 
     private bool LoadConfig()
     {
@@ -73,10 +102,19 @@ public partial class SettingsWindow : Window
         {
             _items.Add(new ProfileItem(profile));
         }
-        EmptyHint.Visibility = _items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        UpdateEmptyHint();
         CheckSavedHotkeys();
         return true;
     }
+
+    private void Save()
+    {
+        ConfigStore.Save(_config);
+        AgentChannel.NotifyConfigChanged();
+    }
+
+    private void UpdateEmptyHint() =>
+        EmptyHint.Visibility = _items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
     /// <summary>Flag saved hotkeys that are invalid or have since been taken by another program.</summary>
     private void CheckSavedHotkeys()
@@ -95,7 +133,7 @@ public partial class SettingsWindow : Window
             var conflict = CheckHotkey(item, hotkey.Value);
             if (conflict is not null)
             {
-                item.Error = $"{hotkey.Value.ToDisplayString()} 当前不会生效：{conflict}";
+                item.Error = $"快捷键当前不会生效：{conflict}";
             }
         }
     }
@@ -123,53 +161,15 @@ public partial class SettingsWindow : Window
         };
     }
 
-    private void Save()
-    {
-        ConfigStore.Save(_config);
-        AgentChannel.NotifyConfigChanged();
-    }
-
-    private void RefreshMonitors()
-    {
-        try
-        {
-            MonitorList.ItemsSource = LayoutService.Default.ListMonitors().Select(m => m.Describe()).ToList();
-        }
-        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or LayoutException)
-        {
-            MonitorList.ItemsSource = new[] { $"无法读取显示器信息：{ex.Message}" };
-        }
-    }
-
     private static ProfileItem ItemOf(object sender) => (ProfileItem)((FrameworkElement)sender).DataContext;
 
     private static void ShowError(string message) =>
         MessageBox.Show(message, "PrimeShift", MessageBoxButton.OK, MessageBoxImage.Error);
 
-    // ---- layout cards ----
+    private static void OpenShell(string target) =>
+        Process.Start(new ProcessStartInfo(target) { UseShellExecute = true })?.Dispose();
 
-    private void OnHotkeyRecorded(object? sender, HotkeyRecordedEventArgs e)
-    {
-        var item = ItemOf(sender!);
-        if (e.Hotkey is not { } hotkey)
-        {
-            item.Model.Hotkey = null;
-            item.Error = null;
-        }
-        else
-        {
-            var conflict = CheckHotkey(item, hotkey);
-            if (conflict is not null)
-            {
-                item.Error = $"{hotkey.ToDisplayString()}：{conflict}";
-                return;
-            }
-            item.Model.Hotkey = hotkey.ToString();
-            item.Error = null;
-        }
-        item.Refresh();
-        Save();
-    }
+    // ---------------------------------------------------------------- layouts page
 
     private void OnApply(object sender, RoutedEventArgs e)
     {
@@ -178,7 +178,7 @@ public partial class SettingsWindow : Window
         {
             LayoutService.Default.Apply(item.Model);
         }
-        catch (Exception ex) when (ex is LayoutException or System.ComponentModel.Win32Exception)
+        catch (Exception ex) when (ex is LayoutException or Win32Exception)
         {
             ShowError($"无法切换到「{item.Name}」：\n{ex.Message}");
         }
@@ -193,7 +193,7 @@ public partial class SettingsWindow : Window
         {
             captured = LayoutService.Default.Capture(item.Name);
         }
-        catch (System.ComponentModel.Win32Exception ex)
+        catch (Win32Exception ex)
         {
             ShowError($"无法读取当前布局：\n{ex.Message}");
             return;
@@ -221,15 +221,16 @@ public partial class SettingsWindow : Window
 
     private void OnNameKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key is Key.Enter or Key.Escape)
+        if (e.Key is not (Key.Enter or Key.Escape))
         {
-            if (e.Key == Key.Escape)
-            {
-                ((TextBox)sender).SetCurrentValue(TextBox.TextProperty, ItemOf(sender).Name);
-            }
-            Keyboard.ClearFocus();
-            e.Handled = true;
+            return;
         }
+        if (e.Key == Key.Escape)
+        {
+            ((TextBox)sender).SetCurrentValue(TextBox.TextProperty, ItemOf(sender).Name);
+        }
+        Keyboard.ClearFocus();
+        e.Handled = true;
     }
 
     private void OnNameLostFocus(object sender, KeyboardFocusChangedEventArgs e)
@@ -244,13 +245,12 @@ public partial class SettingsWindow : Window
         var error = ValidateName(name, item);
         if (error is not null)
         {
-            item.Error = error;
+            ShowError(error);
             // SetCurrentValue keeps the OneWay binding, unlike assigning Text.
             box.SetCurrentValue(TextBox.TextProperty, item.Name);
             return;
         }
         item.Model.Name = name;
-        item.Error = null;
         item.Refresh();
         Save();
     }
@@ -265,8 +265,6 @@ public partial class SettingsWindow : Window
             ? $"已经有名为「{name}」的布局"
             : null;
     }
-
-    // ---- new layout ----
 
     private void OnNewNameChanged(object sender, TextChangedEventArgs e) =>
         NewNamePlaceholder.Visibility = NewNameBox.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -295,23 +293,195 @@ public partial class SettingsWindow : Window
         {
             profile = LayoutService.Default.Capture(name);
         }
-        catch (System.ComponentModel.Win32Exception ex)
+        catch (Win32Exception ex)
         {
             ShowError($"无法读取当前布局：\n{ex.Message}");
             return;
         }
         _config.Profiles.Add(profile);
-        _items.Add(new ProfileItem(profile));
+        _items.Add(new ProfileItem(profile) { IsExpanded = true });
         NewNameBox.Clear();
         Save();
     }
 
-    private void OnOpenDisplaySettings(object sender, RoutedEventArgs e) =>
-        Process.Start(new ProcessStartInfo("ms-settings:display") { UseShellExecute = true })?.Dispose();
+    private void OnStartAgent(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = false })?.Dispose();
+        }
+        catch (Win32Exception ex)
+        {
+            ShowError($"无法启动托盘程序：\n{ex.Message}");
+            return;
+        }
+        // Once the agent's window exists, ask it to release its hotkeys again while settings are open.
+        var attempts = 0;
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+        timer.Tick += (_, _) =>
+        {
+            if (AgentChannel.IsAgentRunning)
+            {
+                AgentChannel.SuspendHotkeys();
+                AgentInfoBar.Visibility = Visibility.Collapsed;
+                timer.Stop();
+            }
+            else if (++attempts > 20)
+            {
+                timer.Stop();
+            }
+        };
+        timer.Start();
+    }
+
+    // ---------------------------------------------------------------- shortcut dialog
+
+    private void OnEditShortcut(object sender, RoutedEventArgs e)
+    {
+        _shortcutTarget = ItemOf(sender);
+        _pendingHotkey = Hotkey.TryParse(_shortcutTarget.Model.Hotkey, out var current, out _) ? current : null;
+        ShortcutDialogTarget.Text = $"布局「{_shortcutTarget.Name}」";
+        ShowPendingKeys(_pendingHotkey?.Parts ?? []);
+        ValidatePendingHotkey(isInitial: true);
+        ShortcutOverlay.Visibility = Visibility.Visible;
+        Keyboard.Focus(ShortcutOverlay);
+    }
+
+    private void OnWindowPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (ShortcutOverlay.Visibility != Visibility.Visible)
+        {
+            return;
+        }
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        var modifiers = ToHotkeyModifiers(Keyboard.Modifiers);
+        if (key is Key.ImeProcessed or Key.DeadCharProcessed)
+        {
+            return;
+        }
+        e.Handled = true;
+        if (modifiers == HotkeyModifiers.None)
+        {
+            switch (key)
+            {
+                case Key.Escape:
+                    CloseShortcutDialog();
+                    return;
+                case Key.Enter:
+                    if (SaveShortcutButton.IsEnabled)
+                    {
+                        OnSaveShortcut(sender, e);
+                    }
+                    return;
+            }
+        }
+        var vk = (uint)KeyInterop.VirtualKeyFromKey(key);
+        if (Hotkey.IsModifierKey(vk))
+        {
+            ShowPendingKeys(Hotkey.ModifierParts(modifiers));
+            return;
+        }
+        _pendingHotkey = new Hotkey(modifiers, vk);
+        ShowPendingKeys(_pendingHotkey.Value.Parts);
+        ValidatePendingHotkey(isInitial: false);
+    }
+
+    private void OnWindowPreviewKeyUp(object sender, KeyEventArgs e)
+    {
+        // Releasing a half-typed combination (modifiers only) falls back to the last full one.
+        if (ShortcutOverlay.Visibility == Visibility.Visible && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            ShowPendingKeys(_pendingHotkey?.Parts ?? []);
+            e.Handled = true;
+        }
+    }
+
+    private void ShowPendingKeys(IReadOnlyList<string> parts)
+    {
+        PendingKeys.ItemsSource = parts;
+        PendingPlaceholder.Visibility = parts.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void ValidatePendingHotkey(bool isInitial)
+    {
+        if (_shortcutTarget is null || _pendingHotkey is not { } hotkey)
+        {
+            ShortcutStatus.Visibility = Visibility.Collapsed;
+            SaveShortcutButton.IsEnabled = false;
+            return;
+        }
+        var conflict = CheckHotkey(_shortcutTarget, hotkey);
+        ShortcutStatus.Visibility = Visibility.Visible;
+        ShortcutStatus.Severity = conflict is null ? InfoBarSeverity.Success : InfoBarSeverity.Error;
+        ShortcutStatus.Message = conflict ?? (isInitial ? "当前快捷键可用。" : "没有发现冲突，可以使用。");
+        SaveShortcutButton.IsEnabled = conflict is null;
+    }
+
+    private void OnSaveShortcut(object sender, RoutedEventArgs e)
+    {
+        if (_shortcutTarget is { } item && _pendingHotkey is { } hotkey)
+        {
+            item.Model.Hotkey = hotkey.ToString();
+            item.Error = null;
+            item.Refresh();
+            Save();
+        }
+        CloseShortcutDialog();
+    }
+
+    private void OnClearShortcut(object sender, RoutedEventArgs e)
+    {
+        if (_shortcutTarget is { } item)
+        {
+            item.Model.Hotkey = null;
+            item.Error = null;
+            item.Refresh();
+            Save();
+        }
+        CloseShortcutDialog();
+    }
+
+    private void OnCancelShortcut(object sender, RoutedEventArgs e) => CloseShortcutDialog();
+
+    private void CloseShortcutDialog()
+    {
+        ShortcutOverlay.Visibility = Visibility.Collapsed;
+        _shortcutTarget = null;
+        _pendingHotkey = null;
+    }
+
+    private static HotkeyModifiers ToHotkeyModifiers(ModifierKeys keys)
+    {
+        var result = HotkeyModifiers.None;
+        if (keys.HasFlag(ModifierKeys.Control)) result |= HotkeyModifiers.Control;
+        if (keys.HasFlag(ModifierKeys.Alt)) result |= HotkeyModifiers.Alt;
+        if (keys.HasFlag(ModifierKeys.Shift)) result |= HotkeyModifiers.Shift;
+        if (keys.HasFlag(ModifierKeys.Windows)) result |= HotkeyModifiers.Win;
+        return result;
+    }
+
+    // ---------------------------------------------------------------- monitors page
+
+    private void RefreshMonitors()
+    {
+        try
+        {
+            MonitorList.ItemsSource = LayoutService.Default.ListMonitors().Select(m => new MonitorItem(m)).ToList();
+            MonitorError.Visibility = Visibility.Collapsed;
+        }
+        catch (Exception ex) when (ex is Win32Exception or LayoutException)
+        {
+            MonitorList.ItemsSource = null;
+            MonitorError.Message = $"无法读取显示器信息：{ex.Message}";
+            MonitorError.Visibility = Visibility.Visible;
+        }
+    }
 
     private void OnRefreshMonitors(object sender, RoutedEventArgs e) => RefreshMonitors();
 
-    // ---- general ----
+    private void OnOpenDisplaySettings(object sender, RoutedEventArgs e) => OpenShell("ms-settings:display");
+
+    // ---------------------------------------------------------------- general page
 
     private void OnAutoStartChanged(object sender, RoutedEventArgs e)
     {
@@ -319,8 +489,8 @@ public partial class SettingsWindow : Window
         {
             return;
         }
-        AutoStart.Set(AutoStartBox.IsChecked == true);
-        AutoStartStaleHint.Visibility = Visibility.Collapsed;
+        AutoStart.Set(AutoStartSwitch.IsChecked == true);
+        AutoStartStale.Visibility = Visibility.Collapsed;
     }
 
     private void OnNotifyChanged(object sender, RoutedEventArgs e)
@@ -329,7 +499,15 @@ public partial class SettingsWindow : Window
         {
             return;
         }
-        _config.NotifyOnSwitch = NotifyBox.IsChecked == true;
+        _config.NotifyOnSwitch = NotifySwitch.IsChecked == true;
         Save();
     }
+
+    private void OnOpenDataFolder(object sender, RoutedEventArgs e)
+    {
+        System.IO.Directory.CreateDirectory(ConfigStore.Directory);
+        OpenShell(ConfigStore.Directory);
+    }
+
+    private void OnOpenRepository(object sender, RoutedEventArgs e) => OpenShell(RepositoryUrl);
 }

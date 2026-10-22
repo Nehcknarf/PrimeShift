@@ -43,17 +43,14 @@ public readonly record struct Hotkey(HotkeyModifiers Modifiers, uint VirtualKey)
     /// <summary>Spaced form for display, e.g. "Ctrl + Alt + F11".</summary>
     public string ToDisplayString() => Format(" + ");
 
-    /// <summary>Modifiers alone in display form, e.g. "Ctrl + Alt", for a combination still being typed.</summary>
-    public static string ModifiersDisplayString(HotkeyModifiers modifiers) =>
-        string.Join(" + ", ModifierNames.Where(m => modifiers.HasFlag(m.Flag)).Select(m => m.Name));
+    /// <summary>Key names in display order, e.g. ["Ctrl", "Alt", "F11"], for key-cap style rendering.</summary>
+    public IReadOnlyList<string> Parts => [.. ModifierParts(Modifiers), KeyName(VirtualKey)];
 
-    private string Format(string separator)
-    {
-        var mods = Modifiers;
-        var parts = ModifierNames.Where(m => mods.HasFlag(m.Flag)).Select(m => m.Name).ToList();
-        parts.Add(KeyName(VirtualKey));
-        return string.Join(separator, parts);
-    }
+    /// <summary>Modifier names alone, for a combination that is still being typed.</summary>
+    public static IReadOnlyList<string> ModifierParts(HotkeyModifiers modifiers) =>
+        ModifierNames.Where(m => modifiers.HasFlag(m.Flag)).Select(m => m.Name).ToList();
+
+    private string Format(string separator) => string.Join(separator, Parts);
 
     /// <summary>Why this combination cannot be used as a global hotkey, or null if it can.</summary>
     public string? Validate()

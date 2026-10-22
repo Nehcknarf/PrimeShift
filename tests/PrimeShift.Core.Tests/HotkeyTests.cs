@@ -41,6 +41,7 @@ public class HotkeyTests
         var hotkey = new Hotkey(HotkeyModifiers.Shift | HotkeyModifiers.Alt | HotkeyModifiers.Control | HotkeyModifiers.Win, 0xBA);
         Assert.Equal("Win+Ctrl+Alt+Shift+;", hotkey.ToString());
         Assert.Equal("Win + Ctrl + Alt + Shift + ;", hotkey.ToDisplayString());
+        Assert.Equal(["Win", "Ctrl", "Alt", "Shift", ";"], hotkey.Parts);
         Assert.True(Hotkey.TryParse(hotkey.ToString(), out var parsed, out _));
         Assert.Equal(hotkey, parsed);
     }

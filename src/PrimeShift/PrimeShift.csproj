@@ -32,6 +32,7 @@
     <EmbeddedResource Include="Assets\tray-light.ico" LogicalName="tray-light.ico" />
     <EmbeddedResource Include="Assets\tray-dark.ico" LogicalName="tray-dark.ico" />
     <Resource Include="Assets\app.ico" />
+    <Resource Include="Assets\app.png" />
   </ItemGroup>
 
   <ItemGroup>
