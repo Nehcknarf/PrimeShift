@@ -1,9 +1,9 @@
 # PrimeShift
-🖥️ One-hotkey primary display switcher for Windows multi-monitor + KVM setups. 一键将 KVM 屏切为主屏，远程访问不再黑屏。
+🖥️ One-hotkey primary display switcher for Windows multi-monitor + KVM setups. 一键将 KVM 屏切为主屏，远程操作时开始菜单、任务栏和窗口都在 KVM 画面里。
 
 ## 解决什么问题
 
-主机接了多块显示器，其中一路接到远程 KVM（如 GL-RM10）作为扩展屏。远程连上时，任务栏、开始菜单和窗口都在本地主屏上，KVM 画面里只有一块空桌面，看起来像黑屏。
+主机接了多块显示器，其中一路接到远程 KVM（如 GL-RM10）作为扩展屏。Windows 只在主屏上显示开始菜单和任务栏，新打开的窗口也大多出现在主屏上，所以远程连上后，KVM 画面里只有一块扩展桌面：点不到开始菜单，也看不到正在用的窗口。
 
 PrimeShift 把显示布局保存下来，再用全局快捷键或托盘菜单一键切换：
 
@@ -71,7 +71,7 @@ Windows 的限制：查不出是哪个程序占用了快捷键；用低层键盘
 
 ## 注意事项
 
-- **锁屏时快捷键不生效。** 开机或锁屏后，需要先通过 KVM 键盘盲输 PIN 登录（按任意键唤出登录框，输入 PIN 后回车），再按快捷键。
+- **PrimeShift 解决不了锁屏界面的问题。** Windows 的登录和锁屏界面只显示在主屏上，这时 KVM 画面是黑的，而且快捷键要登录后才生效。可以通过 KVM 键盘盲输 PIN 登录（按任意键唤出登录框，输入 PIN 后回车），登录后再按快捷键；也可以开启自动登录（`netplwiz`），但这台机器开放了远程 KVM，自动登录会降低安全性，请自行权衡。
 - **离开前最好先切回 home。** 如果停在 remote 布局，回家时本地的屏幕都是黑的，按一下 home 的快捷键即可恢复。
 - 日常远程如果需要高画质和高帧率，可以配合 Sunshine + Moonlight 使用，KVM 留给开机、BIOS 和救援场景。
 

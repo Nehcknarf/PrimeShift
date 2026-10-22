@@ -273,7 +273,7 @@
                                 <StackPanel Grid.Column="1" Margin="18,0,16,0" VerticalAlignment="Center">
                                     <TextBlock Text="PrimeShift" FontSize="20" FontWeight="SemiBold" />
                                     <TextBlock x:Name="VersionText" Style="{StaticResource Caption}" Margin="0,2,0,0" />
-                                    <TextBlock Style="{StaticResource Caption}" Text="一键将 KVM 屏切为主屏，远程访问不再黑屏。" />
+                                    <TextBlock Style="{StaticResource Caption}" Text="一键将 KVM 屏切为主屏，远程操作时开始菜单、任务栏和窗口都在 KVM 画面里。" />
                                 </StackPanel>
                                 <Button Grid.Column="2" VerticalAlignment="Center" Click="OnOpenRepository">
                                     <StackPanel Orientation="Horizontal">
