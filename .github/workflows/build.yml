@@ -21,14 +21,30 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      # Tag v1.2.3 / v1.2.3-beta.1 -> version 1.2.3 / 1.2.3-beta.1; other builds get 0.0.0-dev.<run number>.
+      - name: Version
+        id: version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            if ($env:GITHUB_REF_NAME -notmatch '^v(\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?)$') {
+              throw "Tag '$env:GITHUB_REF_NAME' is not of the form v1.2.3 or v1.2.3-suffix"
+            }
+            $version = $Matches[1]
+          } else {
+            $version = "0.0.0-dev.$env:GITHUB_RUN_NUMBER"
+          }
+          "value=$version" >> $env:GITHUB_OUTPUT
+          Write-Host "Version: $version"
+
       - name: Test
         run: dotnet test tests/PrimeShift.Core.Tests -c Release
 
       - name: Publish standalone exe (no runtime needed)
-        run: dotnet publish src/PrimeShift -c Release -r win-x64 -o out/standalone
+        run: dotnet publish src/PrimeShift -c Release -r win-x64 -p:Version=${{ steps.version.outputs.value }} -o out/standalone
 
       - name: Publish lite exe (needs .NET 10 Desktop Runtime)
-        run: dotnet publish src/PrimeShift -c Release -r win-x64 -p:SelfContained=false -o out/lite
+        run: dotnet publish src/PrimeShift -c Release -r win-x64 -p:SelfContained=false -p:Version=${{ steps.version.outputs.value }} -o out/lite
 
       - name: Rename
         shell: pwsh
@@ -66,3 +82,5 @@ jobs:
         with:
           files: dist/*.exe
           generate_release_notes: true
+          # v1.2.3-beta.1 and the like are published as pre-releases.
+          prerelease: ${{ contains(github.ref_name, '-') }}

@@ -27,7 +27,7 @@ PrimeShift 把显示布局保存下来，再用全局快捷键或托盘菜单一
 
 ## 下载
 
-在 [Actions](../../actions/workflows/build.yml) 最新一次成功构建的 Artifacts 里下载；打 `v*` 标签后，Releases 页面也会自动附上 exe。
+从 [Releases](../../releases/latest) 下载最新版本。想试用开发中的版本，可以在 [Actions](../../actions/workflows/build.yml) 最新一次成功构建的 Artifacts 里下载。
 
 | 文件 | 说明 |
 |---|---|
@@ -95,6 +95,17 @@ dotnet publish src/PrimeShift -c Release -r win-x64 -p:SelfContained=false  # �
 | `src/PrimeShift/Agent` | 常驻托盘程序：隐藏窗口、托盘图标、右键菜单、全局快捷键 |
 | `src/PrimeShift/Settings` | WPF 设置窗口（`PrimeShift.exe --settings`） |
 | `tests/PrimeShift.Core.Tests` | xUnit 测试 |
+
+### 发布新版本
+
+版本号直接取自 git 标签，不需要改任何文件。推送 `v` 开头的标签即可：
+
+```bash
+git tag v0.3.0
+git push origin v0.3.0
+```
+
+Actions 会以 `0.3.0` 作为版本号编译、测试，然后创建 Release 并附上两个 exe。带后缀的标签（如 `v0.3.0-beta.1`）会发布为预发布版本。不是从标签触发的构建，版本号为 `0.0.0-dev.<构建序号>`。
 
 ## License
 
